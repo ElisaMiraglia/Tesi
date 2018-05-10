@@ -100,6 +100,7 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
 
 % Assemble the rhs which is constant (ext force + Neumann condition)
     b    = op_f_v_tp (sp, msh, f);
+    norm_b = sqrt(sum(b.^2));
 
     % Apply Neumann boundary conditions (ERRORE!!)
     for iside = nmnn_sides
@@ -117,15 +118,12 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
     %N-R cycle
     while err_d > eps_d && err_r > eps_r
              [val, grid] = sp_eval (u, sp, geometry, x, {'value', 'gradient'});
-              d = val{2}; %Calculation of gradu for next iteration
+              d = val{2};
 
-  %           f_s  = op_f_d_s_tp(sp, sp, msh, d); %SCRIVERE LA FUNZIONE
-  %           rhs  = f_s - b;
+             f_s  = op_f_d_s_tp(sp, msh, d, num_row, num_col, mat_property);
+             rhs  = f_s - b;
    
-             rhs = b;
              mat    = op_mat_stiff_tp (sp, sp, msh, d, num_row, num_col, mat_property)+op_geo_stiff_tp (sp, sp, msh, d, num_row, num_col, mat_property);
-           
-           
              % Apply Dirichlet boundary conditions
              delta_u = zeros (sp.ndof, 1);  
              [u_drchlt, drchlt_dofs] = sp_drchlt_l2_proj (sp, msh, h, drchlt_sides);
@@ -135,13 +133,15 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
              rhs(int_dofs) = rhs(int_dofs) - mat (int_dofs, drchlt_dofs) * u_drchlt;
  
              % Solve the linearyzed system
-             delta_u(int_dofs) = mat(int_dofs, int_dofs) \ rhs(int_dofs);
+             delta_u(int_dofs) = - mat(int_dofs, int_dofs) \ rhs(int_dofs);
             
-             err_d = 0;
-             err_r = 0;
+             norm_delta_u = sqrt(sum(delta_u.^2));
+             norm_u = sqrt(sum(u.^2));
+             norm_rhs = sqrt(sum(rhs.^2));
+             err_d = norm_delta_u/norm_u;
+             err_r = norm_rhs/norm_b;
         
              %update the solution
-             u_new = u + delta_u;
-             u = u_new;
+             u = u + delta_u;
     end
 end

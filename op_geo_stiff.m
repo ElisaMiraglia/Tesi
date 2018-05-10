@@ -31,23 +31,25 @@ function mat = op_geo_stiff(spu, spv, msh, d, num_row, mat_property)
     def_grad = bsxfun(@plus, Id, d_el);
    
     S = zeros(2,2,size(def_grad,3));
-    for inode = 1:size(def_grad, 3)
+        for inode = 1:size(def_grad, 3)
             [S_node,D_node] = Mooney(def_grad(:,:,inode), mat_property);
             S(:,:,inode)=S_node;
-    end
+        end
    
     if (all (msh.jacdet(:,iel)))
       mat_loc = zeros (spv.nsh(iel), spu.nsh(iel));
       for idof = 1:spv.nsh(iel)
-        ishg = reshape(gradv(:,:,:,idof,iel),spv.ncomp, []);
+        ishg = reshape(gradv(:,:,:,idof,iel),spv.ncomp,ndir, []);
         for jdof = 1:spu.nsh(iel) 
-          jshg = reshape(gradu(:,:,:,jdof,iel),spu.ncomp,ndir, []);
+        jshg = reshape(gradu(:,:,:,jdof,iel),spu.ncomp,ndir, []);
+        tmp1 = zeros(msh.nqn,1);
           for inode = 1:msh.nqn
              jshg(:,:,inode)=S(:,:,inode)*jshg(:,:,inode);
-           end
-             mat_loc(idof, jdof) = mat_loc(idof, jdof) + ...
-             sum (msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* ...
-                  sum (ishg .* jshg, 1));  
+             tmp1(inode)=sum(sum(ishg(:,:,inode).*jshg(:,:,inode),1));
+          end
+        mat_loc(idof, jdof) = mat_loc(idof, jdof) + ...
+             sum (msh.jacdet(:,iel) .* ...
+                  tmp1 .* msh.quad_weights(:, iel));
         end
       end
       mat(spv.connectivity(:, iel), spu.connectivity(:, iel)) = ...
@@ -56,8 +58,4 @@ function mat = op_geo_stiff(spu, spv, msh, d, num_row, mat_property)
       warning ('geopdes:jacdet_zero_at_quad_node', 'op_gradu_gradv: singular map in element number %d', iel)
     end
   end
-
-end
-
-
 

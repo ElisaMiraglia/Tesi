@@ -1,21 +1,20 @@
 % OP_K_MAT: assemble the stiffness matrix K_mat = [K_mat(i,j)].
 %
-%   mat = op_mat_stiff (spu, spv, msh, D);
-%   [rows, cols, values] = op_mat_stiff (spu, spv, msh, D);
+%   mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
 %
 % INPUT:
 %
 %   spu:   structure representing the space of trial functions (see sp_scalar/sp_evaluate_col)
 %   spv:   structure representing the space of test functions (see sp_scalar/sp_evaluate_col)
 %   msh:   structure containing the domain partition and the quadrature rule (see msh_cartesian/msh_evaluate_col)
-%   D:     matrix form of the constitutive 4th order tensor (6x6)
+%   d:     gradient of the solution one step before
+%   num_col = number of quadrature points in x direction for each element
+%   num_row = number of quadrature points in y direction for each element
+%   mat_prop = vector of 3 elements containing the material properties (Implementation for Mooney Rivlin materials)
 %
 % OUTPUT:
 %
 %   mat:    assembled stiffness matrix
-%   rows:   row indices of the nonzero entries
-%   cols:   column indices of the nonzero entries
-%   values: values of the nonzero entries
 
 function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
   
