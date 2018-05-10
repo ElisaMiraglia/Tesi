@@ -32,6 +32,7 @@
 %    - nsub:       number of subelements with respect to the geometry mesh 
 %                   (nsub=1 leaves the mesh unchanged)
 %    - nquad:      number of points for Gaussian quadrature rule
+%    - eps_
 %
 % OUTPUT:
 %
@@ -76,45 +77,71 @@ scalar_spaces = repmat ({space_scalar}, 1, msh.rdim);
 sp = sp_vector (scalar_spaces, msh);
 clear space_scalar scalar_spaces
 
+
+%Creo il vettore per valutare la matrice
+
+x_1 = [];
+x_2 = [];
+     for i = 1:size(msh.qn{1},2)  
+        x_1 = [x_1, msh.qn{1}(:,i)'];
+     end
+
+    for j = 1:size(msh.qn{2},2)  
+        x_2 = [x_2, msh.qn{2}(:,j)'];
+    end
+
+x = {x_1, x_2};
+
+u = zeros (sp.ndof, 1);
+
+num_col = method_data.nquad(1);     % Points for the Gaussian quadrature rule along x direction
+num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule along y direction
+
+
 % Assemble the rhs which is constant (ext force + Neumann condition)
     b    = op_f_v_tp (sp, msh, f);
 
-    % Apply Neumann boundary conditions
+    % Apply Neumann boundary conditions (ERRORE!!)
     for iside = nmnn_sides
-    % Restrict the function handle to the specified side, in any dimension, gside = @(x,y) g(x,y,iside)
+    %Restrict the function handle to the specified side, in any dimension, gside = @(x,y) g(x,y,iside)
       gside = @(varargin) g(varargin{:},iside);
       dofs = sp.boundary(iside).dofs;
-      b(dofs) = b(dofs) + op_f_v_tp (sp.boundary(iside), msh.boundary(iside), gside);
+     b(dofs) = b(dofs) + op_f_v_tp (sp.boundary(iside), msh.boundary(iside), gside);
     end
-    
-    symm_dofs = [];
-    
+        
     %Initial guess
-    u = zeros (sp.ndof, 1);
-   
+        
+    err_d = 1000;
+    err_r = 1000;
+    
     %N-R cycle
-    while(err_d > eps_d && err_r > eps_r)
-        
-     [grad_u, F] = sp_eval (u, space, geometry, vtk_pts, {'gradient'});
-      
-     %grad_u è valuatato sulla griglia
-        def_grad = eye(2)+grad_u{1}(1,1,:,:);
-        [S,D] = Mooney(def_gradient, mat_prop); %MODIFICARE MOONEY PER INODE
-        f_s  = op_f_d_s_tp(sp, sp, msh, S); %SCRIVERE LA FUNZIONE
-        rhs  = f_s - b;
-        mat    = op_geo_stiff_tp (sp, sp, msh, S) + op_mat_stiff_tp (sp, sp, msh, D); 
-        
-        % Apply Dirichlet boundary conditions
-        delta_u = zeros (sp.ndof, 1);  
-        [u_drchlt, drchlt_dofs] = sp_drchlt_l2_proj (sp, msh, h, drchlt_sides);
-        delta_u(drchlt_dofs) = u_drchlt;
+    while err_d > eps_d && err_r > eps_r
+             [val, grid] = sp_eval (u, sp, geometry, x, {'value', 'gradient'});
+              d = val{2}; %Calculation of gradu for next iteration
 
-        int_dofs = setdiff (1:sp.ndof, [drchlt_dofs, symm_dofs]);
-        rhs(int_dofs) = rhs(int_dofs) - mat (int_dofs, drchlt_dofs) * u_drchlt;
-
-        % Solve the linear system
-        delta_u(int_dofs) = mat(int_dofs, int_dofs) \ rhs(int_dofs);
+  %           f_s  = op_f_d_s_tp(sp, sp, msh, d); %SCRIVERE LA FUNZIONE
+  %           rhs  = f_s - b;
+   
+             rhs = b;
+             mat    = op_mat_stiff_tp (sp, sp, msh, d, num_row, num_col, mat_property)+op_geo_stiff_tp (sp, sp, msh, d, num_row, num_col, mat_property);
+           
+           
+             % Apply Dirichlet boundary conditions
+             delta_u = zeros (sp.ndof, 1);  
+             [u_drchlt, drchlt_dofs] = sp_drchlt_l2_proj (sp, msh, h, drchlt_sides);
+             delta_u(drchlt_dofs) = u_drchlt;
+ 
+             int_dofs = setdiff (1:sp.ndof, drchlt_dofs);
+             rhs(int_dofs) = rhs(int_dofs) - mat (int_dofs, drchlt_dofs) * u_drchlt;
+ 
+             % Solve the linearyzed system
+             delta_u(int_dofs) = mat(int_dofs, int_dofs) \ rhs(int_dofs);
+            
+             err_d = 0;
+             err_r = 0;
         
-        u_new = u + delta_u;
-        u = u_new;
+             %update the solution
+             u_new = u + delta_u;
+             u = u_new;
     end
+end

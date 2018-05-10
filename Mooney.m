@@ -14,10 +14,13 @@
 %   D 6x6 matrix that represents the constitutive 4th order tensor C
 
 
-function varargout = Mooney(F, mat_property)
-
-    A10 = mat_property(1);
-    A01 = mat_property(2);
+function varargout = Mooney(F, mat_prop)
+    
+    %A10 = mat_property(1);
+    %A01 = mat_property(2);
+    A10 = mat_prop(1);
+    A01 = mat_prop(2);
+    
     
     C = F'*F;
     
@@ -41,13 +44,15 @@ function varargout = Mooney(F, mat_property)
     J2E = I2E.*(I3)^(-2/3)- 2/3 .* I2.*(I3)^(-5/3).*I3E;
     J3E = 1/2 * (I3).^(-1/2).*I3E;
     
-    if(length(mat_property)==3)
-       K = mat_property(3);
-       S = A10.*J1E+A01.*J2E+K.*(J3-1).*J3E;
-    else
-       S = A10.*J1E+A01.*J2E;
-    end 
-    
+%     if(length(mat_property)==3)
+%        K = mat_property(3);
+%        S = A10.*J1E+A01.*J2E+K.*(J3-1).*J3E;
+%     else
+%        S = A10.*J1E+A01.*J2E;
+%     end 
+%     
+  D = eye(3);
+  S = A10.*J1E+A01.*J2E;
     
   if (nargout == 1)
     varargout{1} = S;

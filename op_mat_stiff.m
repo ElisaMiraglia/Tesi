@@ -17,66 +17,8 @@
 %   cols:   column indices of the nonzero entries
 %   values: values of the nonzero entries
 
-% function varargout = op_mat_stiff(spu, spv, msh, D)
-% 
-%   gradu = reshape (spu.shape_function_gradients, spu.ncomp, [], ...
-% 		   msh.nqn, spu.nsh_max, msh.nel);
-%   gradv = reshape (spv.shape_function_gradients, spv.ncomp, [], ...
-% 		   msh.nqn, spv.nsh_max, msh.nel);
-% 
-%   ndir = size (gradu, 2);
-% 
-%   rows = zeros (msh.nel * spu.nsh_max * spv.nsh_max, 1);
-%   cols = zeros (msh.nel * spu.nsh_max * spv.nsh_max, 1);
-%   values = zeros (msh.nel * spu.nsh_max * spv.nsh_max, 1);
-% 
-%   jacdet_weights = msh.jacdet .* msh.quad_weights .* coeff;
-%   
-%   ncounter = 0;
-%   for iel = 1:msh.nel
-%     if (all (msh.jacdet(:, iel)))
-%       gradu_iel = reshape (gradu(:,:,:,1:spu.nsh(iel),iel), spu.ncomp*ndir, msh.nqn, 1, spu.nsh(iel));
-% %       gradu_iel = repmat (gradu_iel, [1,1,spv.nsh(iel),1]);
-%       gradv_iel = reshape (gradv(:,:,:,1:spv.nsh(iel),iel), spv.ncomp*ndir, msh.nqn, spv.nsh(iel), 1);
-% %       gradv_iel = repmat (gradv_iel, [1,1,1,spu.nsh(iel)]);
-% 
-%       dim = size(gradu_iel,1);
-%       
-%       jacdet_iel = reshape (jacdet_weights(:,iel), [1,msh.nqn,1,1]);
-%       jacdet_gradu = bsxfun (@times, jacdet_iel, gradu_iel)
-%       
-%       %First we have to compute B_i and B_j
-%       
-%       S_jacdet_gradu = sum(bsxfun (@times, jacdet_gradu, S), 1);
-%       tmp1 = sum (bsxfun (@times, S_jacdet_gradu, gradv_iel), 1);
-%       values(ncounter+(1:spu.nsh(iel)*spv.nsh(iel))) = reshape (sum (tmp1, 2), spv.nsh(iel), spu.nsh(iel));
-% 
-%       [rows_loc, cols_loc] = ndgrid (spv.connectivity(:,iel), spu.connectivity(:,iel));
-%       rows(ncounter+(1:spu.nsh(iel)*spv.nsh(iel))) = rows_loc;
-%       cols(ncounter+(1:spu.nsh(iel)*spv.nsh(iel))) = cols_loc;
-%       ncounter = ncounter + spu.nsh(iel)*spv.nsh(iel);
-% 
-%     else
-%       warning ('geopdes:jacdet_zero_at_quad_node', 'op_K_geo: singular map in element number %d', iel)
-%     end
-%   end
-% 
-%   if (nargout == 1 || nargout == 0)
-%     varargout{1} = sparse (rows(1:ncounter), cols(1:ncounter), ...
-%                            values(1:ncounter), spv.ndof, spu.ndof);
-%   elseif (nargout == 3)
-%     varargout{1} = rows(1:ncounter);
-%     varargout{2} = cols(1:ncounter);
-%     varargout{3} = values(1:ncounter);
-%   else
-%     error ('op_K_geo: wrong number of output arguments')
-%   end
-% 
-% end
-
-function mat = op_mat_stiff(spu, spv, msh, F)
+function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
   
-  F = 2*eye(2)
   mat = spalloc (spv.ndof, spu.ndof, 1);
   
   gradu = reshape (spu.shape_function_gradients, spu.ncomp, [], msh.nqn, spu.nsh_max, msh.nel);
@@ -85,38 +27,49 @@ function mat = op_mat_stiff(spu, spv, msh, F)
   ndir = size (gradu, 2);
 
   for iel = 1:msh.nel
+   d_el = d(:,:,:,num_row*(iel-1)+1:num_row*iel);
+   d_el = reshape(d_el, size(d_el,1), size(d_el,2) ,size(d_el,3)*size(d_el,4));
+   
+   Id = repmat(eye(2), [1,1,size(d_el,3)]);%Devo creare una matrice identità per numero di nodi volte
+   def_grad = bsxfun(@plus, Id, d_el);
+   
+   D = zeros(3,3,size(def_grad,3));
+   for inode = 1:size(def_grad, 3)
+            [S_node,D_node] = Mooney(def_grad(:,:,inode), mat_property);
+            D(:,:,inode)=D_node;
+   end
+   
+   row_ind = repmat(1:spv.nsh(iel)/2, [1,ndir]);
+   col_ind = repmat(1:spu.nsh(iel)/2, [1,ndir]);
     if (all (msh.jacdet(:,iel)))
       mat_loc = zeros (spv.nsh(iel), spu.nsh(iel));
       for idof = 1:spv.nsh(iel)
         ishg = reshape(gradv(:,:,:,idof,iel),spv.ncomp,ndir, []);
         for inode = 1:msh.nqn
            B_i = zeros(3,2,msh.nqn);
-           B_i(1:2,1:2,inode)=F.*ishg(:,:,inode);
+           B_i(1:2,1:2,inode)=def_grad(:,:,inode).*ishg(:,:,inode);
            B_i(3,:,inode)= [23 23];
         end
         for jdof = 1:spu.nsh(iel)
+          B_j = zeros(3,2,msh.nqn);
           jshg = reshape(gradu(:,:,:,jdof,iel),spu.ncomp,ndir, []);
-          row_ind = repmat(1:spv.nsh(iel)/2, [1,ndir]);
-          col_ind = repmat(1:spu.nsh(iel)/2, [1,ndir]);
           for inode = 1:msh.nqn
-             B_j = zeros(3,2,msh.nqn);
-             B_j(1:2,1:2,inode)=F.*jshg(:,:,inode);
+             B_j(1:2,1:2,inode)=def_grad(:,:,inode).*jshg(:,:,inode);
              B_j(3,:,inode)= [23 23];
-             D=eye(3);
-             tmp1(:,:,inode) = permute(B_i(:,:,inode), [2 1 3])*D*B_j(:,:,inode);
+             tmp1(:,:,inode) = permute(B_i(:,:,inode), [2 1 3])*D(:,:,inode)*B_j(:,:,inode);
           end
           
           mat_loc(row_ind(idof), col_ind(jdof)) = mat_loc(row_ind(idof), col_ind(jdof)) + ...
-             sum (msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* tmp1(1,1,:));
-          
+             sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* reshape(tmp1(1,1,:), msh.nqn, 1));
+         
           mat_loc(row_ind(idof), col_ind(jdof)+spu.nsh/2) =  mat_loc(row_ind(idof), col_ind(jdof)+spu.nsh/2) + ...
-             sum (msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* tmp1(1,2,:));
-          
+             sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* reshape(tmp1(1,2,:), msh.nqn, 1));
+         
           mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)) = mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)) + ...
-             sum (msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* tmp1(2,1,:));
+             sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* reshape(tmp1(2,1,:), msh.nqn, 1));
           
-          mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)) = mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)) + ...
-             sum (msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* tmp1(2,2,:));
+          mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) = mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) + ...
+             sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* reshape(tmp1(2,2,:), msh.nqn, 1));
          
         end
       end
@@ -124,7 +77,7 @@ function mat = op_mat_stiff(spu, spv, msh, F)
       mat(spv.connectivity(:, iel), spu.connectivity(:, iel)) = ...
         mat(spv.connectivity(:, iel), spu.connectivity(:, iel)) + mat_loc;
     else
-      warning ('geopdes:jacdet_zero_at_quad_node', 'op_gradu_gradv: singular map in element number %d', iel)
+      warning ('geopdes:jacdet_zero_at_quad_node', 'op_mat_stiff: singular map in element number %d', iel)
     end
   end
 
