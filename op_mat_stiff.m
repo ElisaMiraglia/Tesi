@@ -47,15 +47,15 @@ function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
         for inode = 1:msh.nqn
            B_i = zeros(3,2,msh.nqn);
            B_i(1:2,1:2,inode)=def_grad(:,:,inode).*ishg(:,:,inode);
-           B_i(3,:,inode)= [23 23];
+           B_i(3,:,inode)= [def_grad(1,1,inode)*sum(ishg(:,2,inode))  def_grad(1,2,inode)*sum(ishg(:,1,inode))];
         end
         for jdof = 1:spu.nsh(iel)
           B_j = zeros(3,2,msh.nqn);
           jshg = reshape(gradu(:,:,:,jdof,iel),spu.ncomp,ndir, []);
           for inode = 1:msh.nqn
              B_j(1:2,1:2,inode)=def_grad(:,:,inode).*jshg(:,:,inode);
-             B_j(3,:,inode)= [23 23];
-             tmp1(:,:,inode) = permute(B_i(:,:,inode), [2 1 3])*D(:,:,inode)*B_j(:,:,inode);
+             B_j(3,:,inode)= [def_grad(1,1,inode)*sum(jshg(:,2,inode))  def_grad(1,2,inode)*sum(jshg(:,1,inode))];
+           tmp1(:,:,inode) = permute(B_i(:,:,inode), [2 1 3])*D(:,:,inode)*B_j(:,:,inode);
           end
           
           mat_loc(row_ind(idof), col_ind(jdof)) = mat_loc(row_ind(idof), col_ind(jdof)) + ...

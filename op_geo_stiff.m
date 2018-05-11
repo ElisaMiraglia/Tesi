@@ -32,7 +32,7 @@ function mat = op_geo_stiff(spu, spv, msh, d, num_row, mat_property)
    
     S = zeros(2,2,size(def_grad,3));
         for inode = 1:size(def_grad, 3)
-            [S_node,D_node] = Mooney(def_grad(:,:,inode), mat_property);
+            S_node = Mooney(def_grad(:,:,inode), mat_property);
             S(:,:,inode)=S_node;
         end
    

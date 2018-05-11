@@ -16,7 +16,7 @@ function rhs = op_f_d_s(spv, msh, d, num_row, mat_property)
    
    S = zeros(3,size(def_grad,3));
    for inode = 1:size(def_grad, 3)
-            [S_node,D_node] = Mooney(def_grad(:,:,inode), mat_property);
+            S_node = Mooney(def_grad(:,:,inode), mat_property);
             S(:,inode)=[S_node(1,1), S_node(2,2), S_node(1,2)];
    end
 
@@ -30,7 +30,7 @@ function rhs = op_f_d_s(spv, msh, d, num_row, mat_property)
         for inode = 1:msh.nqn
            B_i = zeros(3,2,msh.nqn);
            B_i(1:2,1:2,inode)=def_grad(:,:,inode).*ishg(:,:,inode);
-           B_i(3,:,inode)= [23 23];
+           B_i(3,:,inode)= [def_grad(1,1,inode)*sum(ishg(:,2,inode))  def_grad(1,2,inode)*sum(ishg(:,1,inode))];
            tmp1(:,inode) = permute(B_i(:,:,inode), [2 1 3])*S(:,inode);
         end
 % The cycle on the quadrature points is vectorized
