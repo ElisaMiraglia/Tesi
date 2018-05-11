@@ -16,8 +16,6 @@
 
 function varargout = Mooney(F, mat_prop)
     
-    %A10 = mat_property(1);
-    %A01 = mat_property(2);
     A10 = mat_prop(1);
     A01 = mat_prop(2);
     
@@ -44,16 +42,25 @@ function varargout = Mooney(F, mat_prop)
     J2E = I2E.*(I3)^(-2/3)- 2/3 .* I2.*(I3)^(-5/3).*I3E;
     J3E = 1/2 * (I3).^(-1/2).*I3E;
     
-%     if(length(mat_property)==3)
-%        K = mat_property(3);
-%        S = A10.*J1E+A01.*J2E+K.*(J3-1).*J3E;
-%     else
-%        S = A10.*J1E+A01.*J2E;
-%     end 
-%     
-  D = eye(3);
-  S = A10.*J1E+A01.*J2E;
+     if(length(mat_prop)==3)
+        K = mat_prop(3);
+        S = A10.*J1E+A01.*J2E+K.*(J3-1).*J3E;
+     else
+        S = A10.*J1E+A01.*J2E;
+     end 
     
+    I_2d = [1 0 0; 0 1 0; 0 0 0.5];
+    
+    %Second derivatives of I_j invariants of C
+    I2EE = 4*eye(3)- I_2d;
+    I3EE = 4.* I3 .* C^(-1)'*C^(-1) - I3.*C^(-1)*I_2d*C^(-1);
+   
+    J1EE = -I3.^(-1/3)*(J1E*J3E' + J3E*J1E') + 1/3.*I1*I3.^(-4/3)*(J3E*J3E') - I3.^(-2/3)*I3EE;
+    J2EE = -2/3*I2*I3.^(-5/3)*(J2E*J3E' + J3E*J2E') + 1/2*I3.^(-1/2)*(J3E*J3E') + I3.^(-2/3)*I2EE - 2/3*I2*I3.^(-5/3)*I3EE;
+    J3EE = -I3.^(-1/2)*(J3E*J3E') + 1/2*I3^(-1/2);
+
+    D = A10*J1EE + A01*J2EE + K*(J3E*J3E') + K*(J3-1)*J3EE;
+
   if (nargout == 1)
     varargout{1} = S;
                        
