@@ -114,9 +114,10 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
         
     err_d = 1000;
     err_r = 1000;
+    num_it=0;
     
     %N-R cycle
-    while err_d > eps_d && err_r > eps_r
+    while err_d > eps_d && err_r > eps_r && num_it<num_max_it
              [val, grid] = sp_eval (u, sp, geometry, x, {'value', 'gradient'});
               d = val{2};
 
@@ -143,5 +144,7 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
         
              %update the solution
              u = u + delta_u;
+             num_it=num_it+1;
+             fprintf('It N-R: %d', num_it);
     end
 end
