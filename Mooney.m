@@ -16,57 +16,61 @@
 
 function varargout = Mooney(F, mat_prop)
     
+    C=zeros(3);
+    C_i = zeros(3);
+    
     A10 = mat_prop(1);
     A01 = mat_prop(2);
+    K = mat_prop(3);
     
+    dim=size(F,1);
+    C(1:dim, 1:dim) = F'*F;
+    C_i(1:dim,1:dim) = C(1:dim,1:dim)^(-1);
     
-    C = F'*F;
+    C1=C(1,1); C2=C(2,2); C3=C(3,3); C4=C(1,2); C5=C(2,3); C6=C(1,3);
+    I1 = C1+C2+C3;
+    I2 = C1*C2+C1*C3+C2*C3-C4^2-C5^2-C6^2;
+    I3 = det(C(1:dim, 1:dim));
+    J3 = sqrt(I3);
+
+    I1E = 2*[1 1 1 0 0 0]';
+    I2E = 2*[C2+C3, C3+C1, C1+C2, -C4, -C5, -C6]';
+    I3E = 2*[C2*C3-C5^2,  C3*C1-C6^2,  C1*C2-C4^2, ...
+         C5*C6-C3*C4, C6*C4-C1*C5, C4*C5-C2*C6]';
+
+    J1E = I3^(-1/3)*I1E - 1/3*I1*I3^(-4/3)*I3E;
+    J2E = I3^(-2/3)*I2E - 2/3*I2*I3^(-5/3)*I3E;
+    J3E = 1/2*I3^(-1/2)*I3E;
+
+    S = A10*J1E + A01*J2E + mat_prop(3)*(J3-1)*J3E;
+
     
-    %Invariants:
-    I1 = sum(diag(C));
-    I2 = 1./2 .* ((sum(diag(C))).^2 - sum(diag(C.*C)));
-    I3 = det(C);
-    
-    %Reduced invariants
-    %J1= I1 .* I3.^(-1/3);
-    %J2= I2.* I3.^(-2/3);
-    J3= sqrt(I3);
-    
-    %Derivatives of I_j invariants of C
-    I1E = diag(2.*ones(size(C,1),1));
-    I2E = 2.*(diag(I1.*ones(size(C,1),1))-C);
-    I3E = 2.* I3 .* C^(-1);
-    
-    %Derivatives of J_j reduced invariants of C
-    J1E = I1E.*(I3)^(-1/3)- 1/3 .* I1.*(I3)^(-4/3).*I3E;
-    J2E = I2E.*(I3)^(-2/3)- 2/3 .* I2.*(I3)^(-5/3).*I3E;
-    J3E = 1/2 * (I3).^(-1/2).*I3E;
-    
-     if(length(mat_prop)==3)
-        K = mat_prop(3);
-        S = A10.*J1E+A01.*J2E+K.*(J3-1).*J3E;
-     else
-        S = A10.*J1E+A01.*J2E;
-     end 
-    
-    I_2d = [1 0 0; 0 1 0; 0 0 0.5];
-    
-    %Second derivatives of I_j invariants of C
-    I2EE = 4*eye(3)- I_2d;
-    I3EE = 4.* I3 .* C^(-1)'*C^(-1) - I3.*C^(-1)*I_2d*C^(-1);
-   
-    J1EE = -I3.^(-1/3)*(J1E*J3E' + J3E*J1E') + 1/3.*I1*I3.^(-4/3)*(J3E*J3E') - I3.^(-2/3)*I3EE;
-    J2EE = -2/3*I2*I3.^(-5/3)*(J2E*J3E' + J3E*J2E') + 1/2*I3.^(-1/2)*(J3E*J3E') + I3.^(-2/3)*I2EE - 2/3*I2*I3.^(-5/3)*I3EE;
-    J3EE = -I3.^(-1/2)*(J3E*J3E') + 1/2*I3^(-1/2);
+    D=zeros(6);
+    %   
+    I2EE = [0  4  4  0  0  0; 4  0  4  0  0  0; 4  4  0  0  0  0;
+         0  0  0 -2  0  0; 0  0  0  0 -2  0; 0  0  0  0  0 -2];
+    I3EE = [ 0     4*C3  4*C2  0    -4*C5  0;
+          4*C3  0     4*C1  0     0    -4*C6;
+          4*C2  4*C1  0    -4*C4  0     0;
+          0     0    -4*C4 -2*C3  2*C6  2*C5;
+         -4*C5  0     0     2*C6 -2*C1  2*C4;
+          0    -4*C6  0     2*C5  2*C4 -2*C2];  
+      
+    J1EE = -2/3*I3^(-1/2)*(J1E*J3E' + J3E*J1E') + 8/9*I1*I3^(-4/3)*(J3E*J3E') - 1/3*I1*I3^(-4/3)*I3EE;
+    J2EE = -4/3*I3^(-1/2)*(J2E*J3E' + J3E*J2E') + 8/9*I2*I3^(-5/3)*(J3E*J3E') + I3^(-2/3)*I2EE - 2/3*I2*I3^(-5/3)*I3EE;
+    J3EE = -I3^(-1/2)*(J3E*J3E') + 1/2*I3^(-1/2)*I3EE;
+
 
     D = A10*J1EE + A01*J2EE + K*(J3E*J3E') + K*(J3-1)*J3EE;
 
+    [S_out, D_out] = Voigt(S, D, dim);
+    
   if (nargout == 1)
-    varargout{1} = S;
+    varargout{1} = S_out;
                        
   elseif (nargout == 2)
-    varargout{1} = S;
-    varargout{2} = D;
+    varargout{1} = S_out;
+    varargout{2} = D_out;
   else
     error ('Mooney: wrong number of output arguments')
   end
