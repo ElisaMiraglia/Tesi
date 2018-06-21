@@ -1,5 +1,5 @@
-% OP_F_D_S: assemble the right-hand side vector r = [r(i)], with  r(i) = (f, v_i).
-% 
+% OP_F_D_S: internal forces, (f_d_s)_i = B_i'S
+
 function rhs = op_f_d_s(spv, msh, d, num_row, mat_property)
  
  rhs   = zeros(spv.ndof, 1);
@@ -12,7 +12,7 @@ function rhs = op_f_d_s(spv, msh, d, num_row, mat_property)
    d_el = reshape(d_el, size(d_el,1), size(d_el,2) ,size(d_el,3)*size(d_el,4));
    
    Id = repmat(eye(2), [1,1,size(d_el,3)]);%Devo creare una matrice identità per numero di nodi volte
-   def_grad = bsxfun(@plus, Id, d_el);
+   def_grad = bsxfun(@plus, Id, d_el); %Deformation Gradient
    
    S = zeros(3,size(def_grad,3));
    for inode = 1:size(def_grad, 3)
@@ -23,7 +23,7 @@ function rhs = op_f_d_s(spv, msh, d, num_row, mat_property)
    if (all (msh.jacdet(:,iel)))
      rhs_loc = zeros (spv.nsh(iel), 1);
       for idof = 1:spv.nsh(iel)
-        row_ind = repmat(1:spv.nsh(iel)/2, [1,ndir]);
+       % row_ind = repmat(1:spv.nsh(iel)/2, [1,ndir]);
 
         ishg = reshape(gradv(:,:,:,idof,iel),spv.ncomp,ndir, []);
         tmp1=zeros(2,msh.nqn);
@@ -33,13 +33,16 @@ function rhs = op_f_d_s(spv, msh, d, num_row, mat_property)
            B_i(3,:,inode)= [def_grad(1,1,inode)*sum(ishg(:,2,inode))  def_grad(1,2,inode)*sum(ishg(:,1,inode))];
            tmp1(:,inode) = permute(B_i(:,:,inode), [2 1 3])*S(:,inode);
         end
-% The cycle on the quadrature points is vectorized
-        %for inode = 1:msh.nqn 
-         rhs_loc(row_ind(idof)) = rhs_loc(row_ind(idof)) + ...
-           sum(msh.jacdet(:, iel) .* msh.quad_weights(:, iel) .*tmp1(1,:));
-         rhs_loc(row_ind(idof)+spv.nsh(iel)/2) = rhs_loc(row_ind(idof)+spv.nsh(iel)/2) + ...
-           sum(msh.jacdet(:, iel) .* msh.quad_weights(:, iel) .*tmp1(2,:));
-       %end  
+        
+        %tmp1 = reshape(tmp1, spv.nsh(iel), 1);
+        
+        % The cycle on the quadrature points is vectorized
+        %for inode = 1:msh.nqn
+            rhs_loc(idof) = rhs_loc(idof) + ...
+             sum (msh.jacdet(:, iel) .* msh.quad_weights(:, iel) .* tmp1(1,:)');
+            rhs_loc(idof) = rhs_loc(idof) + ...
+             sum (msh.jacdet(:, iel) .* msh.quad_weights(:, iel) .* tmp1(2,:)');
+        %end 
      end
      rhs(spv.connectivity(:, iel)) = rhs(spv.connectivity(:, iel)) + rhs_loc; 
    else
@@ -48,3 +51,4 @@ function rhs = op_f_d_s(spv, msh, d, num_row, mat_property)
  end
  
 end
+

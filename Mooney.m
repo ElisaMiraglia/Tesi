@@ -1,6 +1,6 @@
 %Moonley: assemble the nominal stress S and the matrix form of the constitutive 4th order tensor D of Mooney-Rivlin materials = [K_geo(i,j)].
-%
-%   [S, D] = Mooney(F, A10, A01, K);
+%   S = Mooney(F, [A10, A01, K]);
+%   [S, D] = Mooney(F, [A10, A01, K]);
 %   
 % INPUT:
 %
@@ -16,21 +16,26 @@
 
 function varargout = Mooney(F, mat_prop)
     
-    C=zeros(3);
-    C_i = zeros(3);
-    
     A10 = mat_prop(1);
     A01 = mat_prop(2);
     K = mat_prop(3);
     
-    dim=size(F,1);
-    C(1:dim, 1:dim) = F'*F;
-    C_i(1:dim,1:dim) = C(1:dim,1:dim)^(-1);
+    dim = size(F,1);
+    
+    if(dim == 2)
+        C = eye(3);
+        C(1:2, 1:2) = F'*F;
+    else
+        C = F'*F;
+    end
+    
+    C_i= C^(-1);
     
     C1=C(1,1); C2=C(2,2); C3=C(3,3); C4=C(1,2); C5=C(2,3); C6=C(1,3);
+    
     I1 = C1+C2+C3;
     I2 = C1*C2+C1*C3+C2*C3-C4^2-C5^2-C6^2;
-    I3 = det(C(1:dim, 1:dim));
+    I3 = det(C);
     J3 = sqrt(I3);
 
     I1E = 2*[1 1 1 0 0 0]';

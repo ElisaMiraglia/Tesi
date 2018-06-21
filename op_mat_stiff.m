@@ -44,8 +44,8 @@ function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
       mat_loc = zeros (spv.nsh(iel), spu.nsh(iel));
       for idof = 1:spv.nsh(iel)
         ishg = reshape(gradv(:,:,:,idof,iel),spv.ncomp,ndir, []);
+        B_i = zeros(3,2,msh.nqn);
         for inode = 1:msh.nqn
-           B_i = zeros(3,2,msh.nqn);
            B_i(1:2,1:2,inode)=def_grad(:,:,inode).*ishg(:,:,inode);
            B_i(3,:,inode)= [def_grad(1,1,inode)*sum(ishg(:,2,inode))  def_grad(1,2,inode)*sum(ishg(:,1,inode))];
         end
@@ -55,7 +55,7 @@ function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
           for inode = 1:msh.nqn
              B_j(1:2,1:2,inode)=def_grad(:,:,inode).*jshg(:,:,inode);
              B_j(3,:,inode)= [def_grad(1,1,inode)*sum(jshg(:,2,inode))  def_grad(1,2,inode)*sum(jshg(:,1,inode))];
-           tmp1(:,:,inode) = permute(B_i(:,:,inode), [2 1 3])*D(:,:,inode)*B_j(:,:,inode);
+             tmp1(:,:,inode) = permute(B_i(:,:,inode), [2 1 3])*D(:,:,inode)*B_j(:,:,inode);
           end
           
           mat_loc(row_ind(idof), col_ind(jdof)) = mat_loc(row_ind(idof), col_ind(jdof)) + ...
@@ -69,9 +69,10 @@ function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
           
           mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) = mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) + ...
              sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* reshape(tmp1(2,2,:), msh.nqn, 1));
-         
         end
       end
+      %mat_loc
+     % pause      
       
       mat(spv.connectivity(:, iel), spu.connectivity(:, iel)) = ...
         mat(spv.connectivity(:, iel), spu.connectivity(:, iel)) + mat_loc;
@@ -79,7 +80,8 @@ function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property)
       warning ('geopdes:jacdet_zero_at_quad_node', 'op_mat_stiff: singular map in element number %d', iel)
     end
   end
-
+    %full(mat)
+    %pause
 end
 
 
