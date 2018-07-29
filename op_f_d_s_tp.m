@@ -17,7 +17,7 @@
 %
 %   f: assembled part of right-hand side of linearized problem
 
-function rhs = op_f_d_s_tp (space, msh, d, num_col, num_row, mat_prop)
+function rhs = op_f_d_s_tp (space, msh, d, num_col, num_row, mat_prop,nel_small)
   rhs = zeros (space.ndof, 1);
 
   for iel = 1:msh.nel_dir(1)
@@ -25,7 +25,7 @@ function rhs = op_f_d_s_tp (space, msh, d, num_col, num_row, mat_prop)
     sp_col = sp_evaluate_col (space, msh_col, 'value', false, 'gradient', true);
     d_col = d(:,:,(iel-1)*num_col+1:iel*num_col,:);
 
-    rhs = rhs + op_f_d_s(sp_col, msh_col, d_col, num_row, mat_prop);
+    rhs = rhs + op_f_d_s(sp_col, msh_col, d_col, num_row, mat_prop, nel_small);
   end
 
 end

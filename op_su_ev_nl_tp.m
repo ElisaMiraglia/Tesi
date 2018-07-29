@@ -12,7 +12,7 @@
 %
 %   mat:    assembled stiffness matrix
 
-function A = op_mat_stiff_tp (space1, space2, msh, d, num_row, num_col, mat_prop, nel_small)
+function A = op_su_ev_nl_tp (space1, space2, msh, d, num_row, num_col, mat_prop)
 
   A = spalloc (space2.ndof, space1.ndof, 3*space1.ndof);
   
@@ -22,6 +22,6 @@ function A = op_mat_stiff_tp (space1, space2, msh, d, num_row, num_col, mat_prop
     sp2_col = sp_evaluate_col (space2, msh_col, 'value', false, 'gradient', true);
     d_col = d(:,:,(iel-1)*num_col+1:iel*num_col,:);
     
-    A = A + op_mat_stiff(sp1_col, sp2_col, msh_col, d_col, num_row, mat_prop, nel_small);
+    A = A + op_su_ev_nl(sp1_col, sp2_col, msh_col, d_col, num_row, mat_prop);
   end
 end
