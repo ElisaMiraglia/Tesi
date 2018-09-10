@@ -34,12 +34,12 @@ function rhs = op_f_d_s(spv, msh, d, num_row, mat_property, nel_small)
         ishg = reshape(gradv(:,:,:,idof,iel),spv.ncomp,ndir, []);
         tmp1=zeros(2,msh.nqn);
         B_i = zeros(3,2,msh.nqn);
-        
         for inode = 1:msh.nqn
            ishgsc = sum(ishg(:,:,inode)); %sum over the columns in order to have scalar value functions
            B_i(1:2,1:2,inode)=def_grad(:,:,inode).*ishgsc';
            B_i(3,:,inode)= [def_grad(1,1,inode)*ishgsc(2)+def_grad(1,2,inode)*ishgsc(1) def_grad(2,1,inode)*ishgsc(2)+def_grad(2,2,inode)*ishgsc(1)]; 
            tmp1(:,inode) = permute(B_i(:,:,inode), [2 1 3])*S(:,inode);
+           
         end
         
         % The cycle on the quadrature points is vectorized

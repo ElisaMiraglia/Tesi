@@ -24,19 +24,21 @@ function mat = op_geo_stiff(spu, spv, msh, d, num_row, mat_property, nel_small)
   ndir = size (gradu, 2);
   
   for iel = 1:msh.nel
+    
     d_el = d(:,:,:,num_row*(iel-1)+1:num_row*iel);
     d_el = reshape(d_el, size(d_el,1), size(d_el,2) ,size(d_el,3)*size(d_el,4));
-    
     Id = repmat(eye(2), [1,1,size(d_el,3)]);
     def_grad = bsxfun(@plus, Id, d_el);
    
     S = zeros(2,2,size(def_grad,3));
         for inode = 1:size(def_grad, 3)
-            if (iel< nel_small)
-                S_node = Mooney(def_grad(:,:,inode), mat_property);
-            else
-                S_node = Mooney(def_grad(:,:,inode), [30*mat_property(1),mat_property(2),20*30*mat_property(1)]);
-            end
+%             if (iel< nel_small)
+%                 S_node = Mooney(def_grad(:,:,inode), mat_property);
+%             else
+%                 %S_node = Mooney(def_grad(:,:,inode), [30*mat_property(1),mat_property(2),20*30*mat_property(1)]);
+%                 
+%             end
+            S_node = Mooney(def_grad(:,:,inode), mat_property);
             S(:,:,inode)=S_node;
         end
    row_ind = repmat(1:spv.nsh(iel)/2, [1,ndir]);
@@ -56,14 +58,10 @@ function mat = op_geo_stiff(spu, spv, msh, d, num_row, mat_property, nel_small)
               tmp1(inode) = val;
           end
           
-         %mat_loc(row_ind(idof), col_ind(jdof)) =  mat_loc(row_ind(idof), col_ind(jdof)) + ...
-         %    sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* reshape(tmp1(1,1,:), msh.nqn, 1)); 
          mat_loc(row_ind(idof), col_ind(jdof)) =  mat_loc(row_ind(idof), col_ind(jdof)) + ...
              sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* tmp1); 
          mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) = mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) + ...
              sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* tmp1);  
-         %mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) = mat_loc(row_ind(idof)+spv.nsh/2, col_ind(jdof)+spu.nsh/2) + ...
-         %    sum(msh.jacdet(:,iel) .* msh.quad_weights(:, iel) .* reshape(tmp1(2,2,:), msh.nqn, 1));
         end
       end
       mat(spv.connectivity(:, iel), spu.connectivity(:, iel)) = ...

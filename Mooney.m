@@ -16,6 +16,7 @@
 %
 %   S assembled nominal stress matrix
 %   D 6x6 matrix that represents the constitutive 4th order tensor C
+%   sigma Cauchy stress tensor
 
 
 function varargout = Mooney(F, mat_prop)
@@ -63,17 +64,24 @@ function varargout = Mooney(F, mat_prop)
           0     0    -4*C4 -2*C3  2*C6  2*C5;
          -4*C5  0     0     2*C6 -2*C1  2*C4;
           0    -4*C6  0     2*C5  2*C4 -2*C2]; 
+      
+    
     J1EE = -2/3*I3^(-1/2)*(J1E*J3E' + J3E*J1E') + 8/9*I1*I3^(-4/3)*(J3E*J3E') - 1/3*I1*I3^(-4/3)*I3EE;
     J2EE = -4/3*I3^(-1/2)*(J2E*J3E' + J3E*J2E') + 8/9*I2*I3^(-5/3)*(J3E*J3E') + I3^(-2/3)*I2EE - 2/3*I2*I3^(-5/3)*I3EE;
     J3EE = -I3^(-1/2)*(J3E*J3E') + 1/2*I3^(-1/2)*I3EE;
 
 
-    D = A10*J1EE + A01*J2EE + K*(I3E*I3E') + K*(I3-1)*J3EE;
+    D = A10*J1EE + A01*J2EE + K*(kron(I3E',I3E)) + K*(I3-1)*J3EE;
 
-    [S_out, D_out] = Voigt(S, D, dim);
-    
-    J = det(F);
-    cauchy = 1/J*F*S_out*F';
+     if(dim == 2)
+        S_out = [S(1),S(4);S(4),S(2)];
+        D_out = zeros(3);
+        D_out(1:2,1:3)=D(1:2,[1 2 4]);
+        D_out(3,1:3)=D(4,[1 2 4]);
+     else
+        S_out=S;
+        D_out=D;
+     end
     
   if (nargout == 1)
     varargout{1} = S_out;
@@ -84,7 +92,7 @@ function varargout = Mooney(F, mat_prop)
   elseif (nargout ==3)
     varargout{1} = S_out;
     varargout{2} = D_out;
-    varargout{3} = cauchy;
+    varargout{3} = 1/det(F)*F*S_out*F';
   else
     error ('Mooney: wrong number of output arguments')
   end

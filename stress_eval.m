@@ -1,4 +1,4 @@
-function sigma_stress = stress_eval (u, sp, geometry, vtk_pts, mat_property)
+function [sigma_stress, S] = stress_eval (u, sp, geometry, vtk_pts, mat_property)
 
     [val, ~] = sp_eval (u, sp, geometry, vtk_pts, {'value', 'gradient'});
     u_grad = val{2};
@@ -9,9 +9,10 @@ function sigma_stress = stress_eval (u, sp, geometry, vtk_pts, mat_property)
     S = zeros(size(u_grad));
     sigma_stress = zeros(size(u_grad));
     for i = 1:size(vtk_pts{1},2)
-        for j = 1:size(vtk_pts{2},2) 
-           S(:,:,i,j) = Mooney(def_grad(:,:,i,j), mat_property);
-           [~,~,sigma_stress(:,:,i,j)] = Mooney(def_grad(:,:,i,j), mat_property);
+        for j = 1:size(vtk_pts{2},2)
+            [S_point,~,sigma_point] = Mooney(def_grad(:,:,i,j), mat_property);
+            S(:,:,i,j) = S_point;
+            sigma_stress(:,:,i,j)= sigma_point;
         end
     end
     

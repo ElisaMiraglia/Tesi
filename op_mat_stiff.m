@@ -15,7 +15,7 @@
 %
 %   mat:    assembled stiffness matrix
 
-function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property, nel_small)
+function mat = op_mat_stiff(spu, spv, msh, d_d, num_row, mat_property, nel_small)
   
   mat = spalloc (spv.ndof, spu.ndof, 1);
   
@@ -25,21 +25,23 @@ function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property, nel_small)
   ndir = size (gradu, 2);
 
   for iel = 1:msh.nel
-   d_el = d(:,:,:,num_row*(iel-1)+1:num_row*iel);
+   d_el = d_d(:,:,:,num_row*(iel-1)+1:num_row*iel);
    d_el = reshape(d_el, size(d_el,1), size(d_el,2) ,size(d_el,3)*size(d_el,4));
    
-   Id = repmat(eye(2), [1,1,size(d_el,3)]);%Devo creare una matrice identità per numero di nodi volte
+   Id = repmat(eye(2), [1,1,size(d_el,3)]);
+  
    def_grad = bsxfun(@plus, Id, d_el);
    
    D = zeros(3,3,size(def_grad,3));
     
    %Mooney Rivlin constitutive law tensor
    for inode = 1:size(def_grad, 3)
-           if (iel<nel_small)
-                [~,D_node] = Mooney(def_grad(:,:,inode), mat_property);
-           else
-                [~,D_node] = Mooney(def_grad(:,:,inode), [30*mat_property(1),mat_property(2),20*30*mat_property(1)]);
-           end
+%            if (iel<nel_small)
+%                 [~,D_node] = Mooney(def_grad(:,:,inode), mat_property);
+%            else
+%                 [~,D_node] = Mooney(def_grad(:,:,inode), [30*mat_property(1),mat_property(2),20*30*mat_property(1)]);
+%            end
+           [~,D_node] = Mooney(def_grad(:,:,inode), mat_property);
            D(:,:,inode)=D_node;
    end
 
@@ -64,9 +66,9 @@ function mat = op_mat_stiff(spu, spv, msh, d, num_row, mat_property, nel_small)
         B_i = zeros(3,2,msh.nqn);
         for inode = 1:msh.nqn
            ishgsc = sum(ishg(:,:,inode)); %sum over the columns in order to have scalar value functions
-           B_i(1:2,1:2,inode)=def_grad(:,:,inode).*ishgsc';
-           B_i(3,:,inode)= [def_grad(1,1,inode)*ishgsc(2)+def_grad(1,2,inode)*ishgsc(1) def_grad(2,1,inode)*ishgsc(2)+def_grad(2,2,inode)*ishgsc(1)]; 
-        end
+           B_i(1:2,1:2,inode)=[def_grad(1,1,inode)*ishgsc(1),def_grad(2,1,inode)*ishgsc(1);def_grad(1,2,inode)*ishgsc(2),def_grad(2,2,inode)*ishgsc(2)];
+           B_i(3,:,inode)= [def_grad(1,1,inode)*ishgsc(2)+def_grad(1,2,inode)*ishgsc(1), def_grad(2,1,inode)*ishgsc(2)+def_grad(2,2,inode)*ishgsc(1)];
+         end
         for jdof = 1:spu.nsh(iel)/2
           jshg = reshape(gradu(:,:,:,jdof,iel),spu.ncomp,ndir, []);
           B_j = zeros(3,2,msh.nqn);

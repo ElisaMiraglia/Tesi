@@ -43,9 +43,9 @@
 %  u:        the computed degrees of freedom
 %
 
-function [geometry, msh, sp, u] = ...
+function [geometry, msh, sp, u, errore] = ...
               solve_NON_linear_elasticity (problem_data, method_data)
-
+          
 % Extract the fields from the data structures into local variables
 data_names = fieldnames (problem_data);
 for iopt  = 1:numel (data_names)
@@ -95,7 +95,9 @@ x = {x_1, x_2};
 
 %Initial guess
 u = zeros (sp.ndof, 1);
-
+[val, F] = sp_eval (u, sp, geometry, x, {'value', 'gradient'});
+grad_u = val{2};
+             
 num_col = method_data.nquad(1);     % Points for the Gaussian quadrature rule along x direction
 num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule along y direction
 
@@ -114,30 +116,32 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
 %   dofs = sp.boundary(iside).dofs;
 %   b(dofs) = b(dofs) + op_f_v_tp (sp.boundary(iside), msh.boundary(iside), g_dx_side);
 
-  lambda_x = 95/100;
-    
+
     %Apply Dirichlet boundary conditions
-    [u_drchlt, drchlt_dofs1] = sp_drchlt_l2_proj (sp, msh, h, [1]);
-    %drchlt_dofs1
+    [~, drchlt_dofs1] = sp_drchlt_l2_proj (sp, msh, h, [1]);
     dim = size(drchlt_dofs1,1);
-    u(drchlt_dofs1(1:dim/2)) = (1-lambda_x)*L/2;
+    %setto la prima componente ux = u1 = (1-lambda_x)*L/2
+    u(drchlt_dofs1(1:dim/2)) = u1;
     
+    %I primi gradi di libertà sono quelli appena settati = u1
     drchlt_dofs = [drchlt_dofs1(1:dim/2)]';
-    [u_drchlt, drchlt_dofs2] = sp_drchlt_l2_proj (sp, msh, h, [2]);
+    
+    [~, drchlt_dofs2] = sp_drchlt_l2_proj (sp, msh, h, [2]);
     dim = size(drchlt_dofs2,1);
-    u(drchlt_dofs2(1:dim/2)) = -(1-lambda_x)*L/2;
+    
+    %Come sopra la componente ux = u2 = -(1-lambda_x)*L/2
+    u(drchlt_dofs2(1:dim/2)) = u2;
     drchlt_dofs = [drchlt_dofs, drchlt_dofs2(1:dim/2)'];
     
-    [u_drchlt, drchlt_dofs3] = sp_drchlt_l2_proj (sp, msh, h, [3]);
+    %Lato sotto setto uy= 0
+    [~, drchlt_dofs3] = sp_drchlt_l2_proj (sp, msh, h, [3]);
     dim = size(drchlt_dofs3,1);
     u(drchlt_dofs3(dim/2+1:dim)) = 0;
     
     drchlt_dofs = [drchlt_dofs, drchlt_dofs3(dim/2+1:dim)'];
     sort(drchlt_dofs);
-    u_drchlt = zeros(size(drchlt_dofs,1));
-    %[u_drchlt, drchlt_dofs] = sp_drchlt_l2_proj (sp, msh, h, drchlt_sides);
     
-    %u(drchlt_dofs) = u_drchlt;
+    u_drchlt = zeros(size(drchlt_dofs,1));
        
     %Initialization of parameters for Newton cycle    
     err_d = 1000;
@@ -145,12 +149,19 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
     num_it=0;
     rhs = zeros(size(b));
     
-    %mat_property = [mat_property2,mat_property1]; %small film, big film
+    errore = [];
     
     %N-R cycle
     while err_d > eps_d && err_r > eps_r && num_it<num_max_it
-             [val, ~] = sp_eval (u, sp, geometry, x, {'value', 'gradient'});
-              D = val{2};
+              pts = {linspace(0, 1, 101), linspace(0, 1, 101)}; 
+             
+             %[val, F] = sp_eval (u, sp, geometry, pts, {'value', 'gradient'});
+             [val, F] = sp_eval (u, sp, geometry, x, {'value', 'gradient'});
+             grad_u = val{2};
+             %[sigma_stress, S] = stress_eval (u, sp, geometry, pts, problem_data.mat_property);
+             
+             %plot_grad_disp(val,F, sigma_stress, S)
+             %pause
 
              num_it=num_it+1;
              fprintf('It N-R: %d \n', num_it);
@@ -161,31 +172,45 @@ num_row = method_data.nquad(2);     % Points for the Gaussian quadrature rule al
              delta_u(drchlt_dofs) = 0*u_drchlt;
              int_dofs = setdiff (1:sp.ndof, [drchlt_dofs]);
              
-             %   int_dofs = setdiff (1:sp.ndof, [drchlt_dofs((dim/2+1):dim)]);
+             mat    = op_mat_stiff_tp (sp, sp, msh, grad_u, num_row, num_col, mat_property, nel_small)+op_geo_stiff_tp (sp, sp, msh, grad_u, num_row, num_col, mat_property, nel_small);
 
-             mat    = op_mat_stiff_tp (sp, sp, msh, D, num_row, num_col, mat_property, nel_small)+op_geo_stiff_tp (sp, sp, msh, D, num_row, num_col, mat_property, nel_small);
-
-             f_s  = op_f_d_s_tp(sp, msh, D, num_row, num_col, mat_property, nel_small);             
+             f_s  = op_f_d_s_tp(sp, msh, grad_u, num_row, num_col, mat_property, nel_small);             
              rhs(int_dofs)  = f_s(int_dofs) -b(int_dofs); 
              
              % Solve the linearyzed system
-             delta_u(int_dofs) = - mat(int_dofs, int_dofs) \ rhs(int_dofs);
-             err_d = norm(delta_u)/norm(u)
-             err_r = norm(rhs)/norm(b)
+            delta_u(int_dofs) =  -mat(int_dofs, int_dofs) \ rhs(int_dofs);
+             %delta_u(int_dofs) = - eye(size(mat(int_dofs, int_dofs))) \ rhs(int_dofs);
+             
+             %err_d = norm(delta_u)/norm(u);
+             err_d = norm(delta_u);
+             err_r = norm(rhs)/norm(b);
         
+             errore = [errore, err_d];
+             
              %update the solution
              u = u + delta_u;
+           
              
-       
-%               vtk_pts = {linspace(0, 1, 20), linspace(0, 1, 20)}; 
-%               [eu, F] = sp_eval (u, sp, geometry, vtk_pts, {'value'});
-%               [X, Y]  = deal (squeeze(F(1,:,:)), squeeze(F(2,:,:)));
-% 
-%               quiver (X, Y, squeeze(eu(1,:,:)), squeeze(eu(2,:,:)))
-%               axis equal tight
-%               title (['Computed displacement IT: ', num2str(num_it)])
-%               %pause
+           
+             
+            filename = sprintf('Iteration(%d)', num_it);
+            vtk_pts = {linspace(0, 1, 100), linspace(0, 1, 100)}; 
+            sp_to_vtk (u, sp, geometry, vtk_pts, filename, {'displacement'}, {'value'})
     
     end
-    %fprintf("Newton Cycle stopped with err_d %f and err_r %f \n", err_d, err_r);
+   
+  
+    figure(1)
+    plot(errore)
+%     filename=sprintf('errore.png');
+%     title(filename)
+%     %variableCreator ( filename, zeros(10,10) )
+%     %err_new(indice,1:length(errore))= errore'; %[errore, zeros(1, 1500 - length(errore))];
+%     
+%     subtitle(filename);
+%     frame = getframe(1);
+%     im = frame2im(frame);
+%     [imind,cm] = rgb2ind(im,256);
+%     imwrite(imind,cm,filename);
+%     close all;
 end
